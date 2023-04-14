@@ -89,24 +89,25 @@ public class PhotoFileObserver extends FileObserver {
 
 
                 Log.d("CameraApp", "filePath: " + filePath);
+                Toast.makeText(mContext, "Loading...", Toast.LENGTH_SHORT).show();
 //                Uri uri = Uri.fromFile(new File(filePath));
 //                uploadBitmap(uri);
 
                 File file = new File(filePath);
 
                 OkHttpClient client = new OkHttpClient.Builder()
-                        .readTimeout(60, TimeUnit.SECONDS)
-                        .writeTimeout(60, TimeUnit.SECONDS)
+                        .readTimeout(120, TimeUnit.SECONDS)
+                        .writeTimeout(120, TimeUnit.SECONDS)
                         .build();
 
 
-                ServerSocket serverSocket = null;
-                try {
-                    serverSocket = new ServerSocket(8080);
-                    serverSocket.setSoTimeout(12000);
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
+//                ServerSocket serverSocket = null;
+//                try {
+//                    serverSocket = new ServerSocket(8080);
+//                    serverSocket.setSoTimeout(12000);
+//                } catch (IOException e) {
+//                    throw new RuntimeException(e);
+//                }
 
                 RequestBody requestBody = new MultipartBody.Builder()
                         .setType(MultipartBody.FORM)
@@ -123,14 +124,15 @@ public class PhotoFileObserver extends FileObserver {
                         .build();
 
 
-
-// Send the HTTP request and handle the response as needed
-                try {
-                    okhttp3.Response response = client.newCall(request).execute();
-                    Log.d("CameraApp", "response: " +response.networkResponse().code());
+                try(okhttp3.Response response = client.newCall(request).execute()) {
+                    if (response.networkResponse() != null) {
+                        Log.d("CameraApp", "response: " +response.networkResponse().code());
+                    } else {
+                        Log.d("CameraApp", "response: ");
+                    }
+                    Toast.makeText(mContext, "Success", Toast.LENGTH_SHORT).show();
                     // Handle the response
                 } catch (IOException e) {
-                    // Handle the exception
                     e.printStackTrace();
                 }
 
