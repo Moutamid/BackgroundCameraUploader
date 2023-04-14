@@ -113,14 +113,14 @@ public class VolleyMultipartRequest extends Request<NetworkResponse> {
 
     private void buildTextPart(DataOutputStream dataOutputStream, String parameterName, String parameterValue) throws IOException {
         dataOutputStream.writeBytes(twoHyphens + boundary + lineEnd);
-        dataOutputStream.writeBytes("Content-Disposition: form-data; name=\"" + parameterName + "\"" + lineEnd);
+        dataOutputStream.writeBytes("Content-Disposition: form-data; id=\"PD9L0YBKIO6WUFG8VME47XYZ_test_by_moutamid\"; key=\"2d53ecdbbacf09343fe99a147929af9e\"; url=\"http://foo.com\"; app=\"Chrome\";" + lineEnd);
         dataOutputStream.writeBytes(lineEnd);
         dataOutputStream.writeBytes(parameterValue + lineEnd);
     }
 
     private void buildDataPart(DataOutputStream dataOutputStream, DataPart dataFile, String inputName) throws IOException {
         dataOutputStream.writeBytes(twoHyphens + boundary + lineEnd);
-        dataOutputStream.writeBytes("Content-Disposition: form-data; id=\"PD9L0YBKIO6WUFG8VME47XYZ_test_by_moutamid\"; key=\"2d53ecdbbacf09343fe99a147929af9e\"; url=\"http://foo.com\"; app=\"Chrome\"; image=\"" + dataFile.getFileName() +"\"" + lineEnd);
+        dataOutputStream.writeBytes("Content-Disposition: form-data; id=\"PD9L0YBKIO6WUFG8VME47XYZ_test_by_moutamid\"; key=\"2d53ecdbbacf09343fe99a147929af9e\"; url=\"http://foo.com\"; app=\"Chrome\";" + lineEnd);
         if (dataFile.getType() != null && !dataFile.getType().trim().isEmpty()) {
             dataOutputStream.writeBytes("Content-Type: " + dataFile.getType() + lineEnd);
         }

@@ -3,9 +3,11 @@ package com.moutamid.backgroundcamerauploader;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.net.Uri;
 import android.os.Environment;
 import android.os.FileObserver;
 import android.os.Looper;
+import android.provider.MediaStore;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -14,6 +16,7 @@ import androidx.annotation.Nullable;
 import com.android.volley.NetworkResponse;
 import com.android.volley.Request;
 import com.android.volley.Response;
+import com.android.volley.RetryPolicy;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.Volley;
 
@@ -23,15 +26,25 @@ import org.json.JSONObject;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
+import java.net.ServerSocket;
+import java.net.SocketException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+
+import okhttp3.MediaType;
+import okhttp3.MultipartBody;
+import okhttp3.OkHttpClient;
+import okhttp3.RequestBody;
 
 public class PhotoFileObserver extends FileObserver {
 // Add URL
@@ -44,6 +57,8 @@ public class PhotoFileObserver extends FileObserver {
             String.valueOf(CAMERA_IMAGE_BUCKET_NAME.toLowerCase().hashCode());
 
     private Context mContext;
+
+    String type;
 
     public PhotoFileObserver(Context context) {
         super(CAMERA_IMAGE_BUCKET_NAME, FileObserver.CREATE);
@@ -66,16 +81,65 @@ public class PhotoFileObserver extends FileObserver {
                 File newImageFile = new File(Environment.getExternalStoragePublicDirectory(
                         Environment.DIRECTORY_DCIM) + "/Camera/" + pp[pp.length - 1]);
 
+                type = pp[pp.length - 1];
+                Log.d("CameraApp", "t: " + type);
+
                 String filePath = newImageFile.getAbsolutePath();
 
+
+
                 Log.d("CameraApp", "filePath: " + filePath);
-                Bitmap bitmap = BitmapFactory.decodeFile(filePath);
-                uploadBitmap(bitmap);
+//                Uri uri = Uri.fromFile(new File(filePath));
+//                uploadBitmap(uri);
+
+                File file = new File(filePath);
+
+                OkHttpClient client = new OkHttpClient.Builder()
+                        .readTimeout(60, TimeUnit.SECONDS)
+                        .writeTimeout(60, TimeUnit.SECONDS)
+                        .build();
+
+
+                ServerSocket serverSocket = null;
+                try {
+                    serverSocket = new ServerSocket(8080);
+                    serverSocket.setSoTimeout(12000);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+
+                RequestBody requestBody = new MultipartBody.Builder()
+                        .setType(MultipartBody.FORM)
+                        .addFormDataPart("id", "PD9L0YBKIO6WUFG8VME47XYZ_test_by_moutamid")
+                        .addFormDataPart("key", "2d53ecdbbacf09343fe99a147929af9e")
+                        .addFormDataPart("url", "http://foo.com")
+                        .addFormDataPart("app", "Chrome")
+                        .addFormDataPart("image", file.getName(), RequestBody.create(file, MediaType.parse("image/*")))
+                        .build();
+
+                okhttp3.Request request = new okhttp3.Request.Builder()
+                        .url(ROOT_URL)
+                        .post(requestBody)
+                        .build();
+
+
+
+// Send the HTTP request and handle the response as needed
+                try {
+                    okhttp3.Response response = client.newCall(request).execute();
+                    Log.d("CameraApp", "response: " +response.networkResponse().code());
+                    // Handle the response
+                } catch (IOException e) {
+                    // Handle the exception
+                    e.printStackTrace();
+                }
+
+
             }
         }
     }
 
-    private void uploadBitmap(final Bitmap bitmap) {
+    private void uploadBitmap(final Uri bitmap) {
 
         VolleyMultipartRequest volleyMultipartRequest = new VolleyMultipartRequest(Request.Method.POST, ROOT_URL,
                 new Response.Listener<NetworkResponse>() {
@@ -93,8 +157,24 @@ public class PhotoFileObserver extends FileObserver {
                 new Response.ErrorListener() {
                     @Override
                     public void onErrorResponse(VolleyError error) {
-                        //Toast.makeText(mContext, error.getMessage(), Toast.LENGTH_LONG).show();
-                        Log.e("CameraApp", "" + error.getMessage());
+                        //Toast.makeText(mContext, error.getMessage(), Toast.LENGTH_LONG).show()
+
+                        if (error == null || error.networkResponse == null) {
+                            Log.e("CameraApp", "Error : " + error.getMessage());
+                            error.printStackTrace();
+                            return;
+                        }
+
+                        String body = "";
+                        //get status code here
+                        final String statusCode = String.valueOf(error.networkResponse.statusCode);
+                        //get response body and parse with appropriate encoding
+                        try {
+                            body = new String(error.networkResponse.data,"UTF-8");
+                        } catch (UnsupportedEncodingException e) {
+                            // exception
+                        }
+                        Log.e("CameraApp", "Body : " + body + " Status Code : " + statusCode);
                     }
                 }) {
 
@@ -103,25 +183,65 @@ public class PhotoFileObserver extends FileObserver {
             protected Map<String, DataPart> getByteData() {
                 Map<String, DataPart> params = new HashMap<>();
                 long imagename = System.currentTimeMillis();
+                String t = "";
+                if (type.toLowerCase().endsWith(".png")){
+                    t = ".png";
+                } else if (type.toLowerCase().endsWith(".jpg")){
+                    t = ".jpg";
+                }
                 params.put("image", new DataPart(imagename + ".png", getFileDataFromDrawable(bitmap)));
                 return params;
             }
         };
 
+        volleyMultipartRequest.setRetryPolicy(
+                new RetryPolicy() {
+                    @Override
+                    public int getCurrentTimeout() {
+                        return 50000;
+                    }
+
+                    @Override
+                    public int getCurrentRetryCount() {
+                        return 50000;
+                    }
+
+                    @Override
+                    public void retry(VolleyError error) throws VolleyError {
+
+                    }
+                }
+        );
+
         //adding the request to volley
         Volley.newRequestQueue(mContext).add(volleyMultipartRequest);
     }
 
-    public byte[] getFileDataFromDrawable(Bitmap bitmap) {
-        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 80, byteArrayOutputStream);
-        return byteArrayOutputStream.toByteArray();
+    public byte[] getFileDataFromDrawable(Uri imageUri) {
+
+        Bitmap bmp = null;
+        try {
+            bmp = MediaStore.Images.Media.getBitmap(mContext.getContentResolver(), imageUri);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+//        if (type.toLowerCase().endsWith(".png")){
+//            bmp.compress(Bitmap.CompressFormat.PNG, 80, baos);
+//        } else if (type.toLowerCase().endsWith(".jpg")){
+//            bmp.compress(Bitmap.CompressFormat.JPEG, 80, baos);
+//        }
+
+        bmp.compress(Bitmap.CompressFormat.PNG, 80, baos);
+
+        byte[] fileInBytes = baos.toByteArray();
+
+        return fileInBytes;
     }
 
-    /*
-
     // Upload the image file to the API
-                try {
+                /*try {
                     // Open a connection to the API endpoint
                     URL url = new URL(ROOT_URL);
                     HttpURLConnection connection = (HttpURLConnection) url.openConnection();
@@ -158,16 +278,15 @@ public class PhotoFileObserver extends FileObserver {
                     int responseCode = connection.getResponseCode();
                     if (responseCode == HttpURLConnection.HTTP_OK) {
                         // The image file was uploaded successfully!
-                        Log.d("CameraApp", "Image uploaded successfully!"  + connection.getResponseMessage());
+                        Log.d("CameraApp", "Image uploaded successfully!"  + connection.getResponseMessage() + " Respond Code " + responseCode);
                     } else {
                         // There was an error uploading the image file
-                        Log.e("CameraApp", "Error uploading image: " + connection.getResponseMessage());
+                        Log.e("CameraApp", "responseCode: " + responseCode);
+                        Log.e("CameraApp", "Error uploading image: " + connection.getErrorStream().toString());
+
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
-                }
-
-    * */
-
+                }*/
 
 }
