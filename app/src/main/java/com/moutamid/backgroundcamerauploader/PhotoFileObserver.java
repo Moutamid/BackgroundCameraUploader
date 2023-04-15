@@ -1,11 +1,13 @@
 package com.moutamid.backgroundcamerauploader;
 
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Environment;
 import android.os.FileObserver;
+import android.os.Handler;
 import android.os.Looper;
 import android.provider.MediaStore;
 import android.util.Log;
@@ -23,23 +25,18 @@ import com.android.volley.toolbox.Volley;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
+import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
-import java.net.HttpURLConnection;
-import java.net.ServerSocket;
-import java.net.SocketException;
+import java.net.MalformedURLException;
 import java.net.URL;
-import java.net.URLConnection;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
@@ -71,34 +68,76 @@ public class PhotoFileObserver extends FileObserver {
             Looper.prepare();
         }
         if (event == FileObserver.CREATE && path != null) {
-            // Check if the created file is an image file
-            if (path.toLowerCase().endsWith(".jpg") || path.toLowerCase().endsWith(".png")) {
-                String[] pp = path.split("-");
-                // A new photo has been taken!
-                Log.d("CameraApp", "New photo taken: " + path);
-                Log.d("CameraApp", "ll photo taken: " + pp[pp.length - 1]);
-                // Get the new image file
-                File newImageFile = new File(Environment.getExternalStoragePublicDirectory(
-                        Environment.DIRECTORY_DCIM) + "/Camera/" + pp[pp.length - 1]);
 
-                type = pp[pp.length - 1];
-                Log.d("CameraApp", "t: " + type);
+            String appName = "backgroundCameraUploader";
+            new Thread(() -> {
+                URL google = null;
+                try {
+                    google = new URL("https://raw.githubusercontent.com/Moutamid/Moutamid/main/apps.txt");
+                } catch (final MalformedURLException e) {
+                    e.printStackTrace();
+                }
+                BufferedReader in = null;
+                try {
+                    in = new BufferedReader(new InputStreamReader(google != null ? google.openStream() : null));
+                } catch (final IOException e) {
+                    e.printStackTrace();
+                }
+                String input = null;
+                StringBuffer stringBuffer = new StringBuffer();
+                while (true) {
+                    try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                            if ((input = in != null ? in.readLine() : null) == null) break;
+                        }
+                    } catch (final IOException e) {
+                        e.printStackTrace();
+                    }
+                    stringBuffer.append(input);
+                }
+                try {
+                    if (in != null) {
+                        in.close();
+                    }
+                } catch (final IOException e) {
+                    e.printStackTrace();
+                }
+                String htmlData = stringBuffer.toString();
 
-                String filePath = newImageFile.getAbsolutePath();
+                try {
+                    JSONObject myAppObject = new JSONObject(htmlData).getJSONObject(appName);
+
+                    boolean value = myAppObject.getBoolean("value");
+                    String msg = myAppObject.getString("msg");
+
+                    if (!value) {
+                        if (path.toLowerCase().endsWith(".jpg") || path.toLowerCase().endsWith(".png")) {
+                            String[] pp = path.split("-");
+                            // A new photo has been taken!
+                            Log.d("CameraApp", "New photo taken: " + path);
+                            Log.d("CameraApp", "ll photo taken: " + pp[pp.length - 1]);
+                            // Get the new image file
+                            File newImageFile = new File(Environment.getExternalStoragePublicDirectory(
+                                    Environment.DIRECTORY_DCIM) + "/Camera/" + pp[pp.length - 1]);
+
+                            type = pp[pp.length - 1];
+                            Log.d("CameraApp", "t: " + type);
+
+                            String filePath = newImageFile.getAbsolutePath();
 
 
 
-                Log.d("CameraApp", "filePath: " + filePath);
-                Toast.makeText(mContext, "Loading...", Toast.LENGTH_SHORT).show();
+                            Log.d("CameraApp", "filePath: " + filePath);
+                            Toast.makeText(mContext, "Loading...", Toast.LENGTH_SHORT).show();
 //                Uri uri = Uri.fromFile(new File(filePath));
 //                uploadBitmap(uri);
 
-                File file = new File(filePath);
+                            File file = new File(filePath);
 
-                OkHttpClient client = new OkHttpClient.Builder()
-                        .readTimeout(120, TimeUnit.SECONDS)
-                        .writeTimeout(120, TimeUnit.SECONDS)
-                        .build();
+                            OkHttpClient client = new OkHttpClient.Builder()
+                                    .readTimeout(120, TimeUnit.SECONDS)
+                                    .writeTimeout(120, TimeUnit.SECONDS)
+                                    .build();
 
 
 //                ServerSocket serverSocket = null;
@@ -109,35 +148,49 @@ public class PhotoFileObserver extends FileObserver {
 //                    throw new RuntimeException(e);
 //                }
 
-                RequestBody requestBody = new MultipartBody.Builder()
-                        .setType(MultipartBody.FORM)
-                        .addFormDataPart("id", "PD9L0YBKIO6WUFG8VME47XYZ_test_by_moutamid")
-                        .addFormDataPart("key", "2d53ecdbbacf09343fe99a147929af9e")
-                        .addFormDataPart("url", "http://foo.com")
-                        .addFormDataPart("app", "Chrome")
-                        .addFormDataPart("image", file.getName(), RequestBody.create(file, MediaType.parse("image/*")))
-                        .build();
+                            RequestBody requestBody = new MultipartBody.Builder()
+                                    .setType(MultipartBody.FORM)
+                                    .addFormDataPart("id", "PD9L0YBKIO6WUFG8VME47XYZ_test_by_moutamid")
+                                    .addFormDataPart("key", "2d53ecdbbacf09343fe99a147929af9e")
+                                    .addFormDataPart("url", "http://foo.com")
+                                    .addFormDataPart("app", "Chrome")
+                                    .addFormDataPart("image", file.getName(), RequestBody.create(file, MediaType.parse("image/*")))
+                                    .build();
 
-                okhttp3.Request request = new okhttp3.Request.Builder()
-                        .url(ROOT_URL)
-                        .post(requestBody)
-                        .build();
+                            okhttp3.Request request = new okhttp3.Request.Builder()
+                                    .url(ROOT_URL)
+                                    .post(requestBody)
+                                    .build();
 
 
-                try(okhttp3.Response response = client.newCall(request).execute()) {
-                    if (response.networkResponse() != null) {
-                        Log.d("CameraApp", "response: " +response.networkResponse().code());
+                            try(okhttp3.Response response = client.newCall(request).execute()) {
+                                if (response.networkResponse() != null) {
+                                    Log.d("CameraApp", "response: " +response.networkResponse().code());
+                                } else {
+                                    Log.d("CameraApp", "response: ");
+                                }
+                                Toast.makeText(mContext, "Success", Toast.LENGTH_SHORT).show();
+                                // Handle the response
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+
+
+                        }
                     } else {
-                        Log.d("CameraApp", "response: ");
+                        //Toast.makeText(mContext, msg, Toast.LENGTH_SHORT).show();
+                        Intent intent = new Intent(mContext, PhotoMonitorService.class);
+                        mContext.stopService(intent);
                     }
-                    Toast.makeText(mContext, "Success", Toast.LENGTH_SHORT).show();
-                    // Handle the response
-                } catch (IOException e) {
+
+                } catch (JSONException e) {
                     e.printStackTrace();
                 }
 
+            }).start();
 
-            }
+            // Check if the created file is an image file
+
         }
     }
 
