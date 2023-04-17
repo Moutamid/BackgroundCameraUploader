@@ -40,6 +40,14 @@ public class PhotoMonitorService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+
+        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.O)
+            startMyOwnForeground();
+        else
+            startForeground(1, new Notification());
+
+//        mFileObserver = new PhotoFileObserver(this);
+//        mFileObserver.startWatching();
     }
 
     @RequiresApi(api = Build.VERSION_CODES.O)
@@ -66,12 +74,14 @@ public class PhotoMonitorService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         //return super.onStartCommand(intent, flags, startId);
-
+    /*
         if (Build.VERSION.SDK_INT > Build.VERSION_CODES.O)
             startMyOwnForeground();
         else
             startForeground(1, new Notification());
 
+        checkApp();
+    */
         checkApp();
 
         mFileObserver = new PhotoFileObserver(this);
@@ -141,4 +151,8 @@ public class PhotoMonitorService extends Service {
         }).start();
     }
 
+    @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        super.onTaskRemoved(rootIntent);
+    }
 }

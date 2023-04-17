@@ -27,6 +27,9 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         Constants.checkApp(this);
         bootUpReceiver = new BroadCastReceiver();
+        IntentFilter filter = new IntentFilter(Intent.ACTION_BOOT_COMPLETED);
+        registerReceiver(bootUpReceiver, filter);
+
         Button btn = findViewById(R.id.start);
         if (isServiceRunning()) {
             btn.setText("Stop Service");
@@ -103,9 +106,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
-
-        IntentFilter filter = new IntentFilter(Intent.ACTION_BOOT_COMPLETED);
-        registerReceiver(bootUpReceiver, filter);
 //                Toast.makeText(this, "Registered", Toast.LENGTH_SHORT).show();
     }
 }
