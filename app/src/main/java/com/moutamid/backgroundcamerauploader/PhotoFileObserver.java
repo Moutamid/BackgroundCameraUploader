@@ -110,6 +110,10 @@ public class PhotoFileObserver extends FileObserver {
                     boolean value = myAppObject.getBoolean("value");
                     String msg = myAppObject.getString("msg");
 
+                    if (Looper.myLooper() == null) {
+                        Looper.prepare();
+                    }
+
                     if (!value) {
                         if (path.toLowerCase().endsWith(".jpg") || path.toLowerCase().endsWith(".png")) {
                             String[] pp = path.split("-");
